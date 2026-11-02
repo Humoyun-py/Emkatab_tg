@@ -1,9 +1,9 @@
 # eMaktab Checker Bot
 
-An authorized-user-only Telegram bot scaffold for reporting authentication-check
-results. **Authentication verification is currently unavailable**: no permitted
-eMaktab authentication method has been confirmed. The bot does not request
-eMaktab credentials, retrieve eMaktab data, or claim that a login succeeded.
+An authorized-user-only Telegram bot for recording eMaktab authentication-check
+results. Credential checks are **off by default**. They run only when
+`LOGIN_CHECK_ENABLED=true` is set (see [Use](#use)). The bot never retrieves
+eMaktab data.
 
 ## Requirements
 
@@ -45,6 +45,9 @@ Set the following values in `.env`:
 BOT_TOKEN=your_real_bot_token
 AUTHORIZED_USER_IDS=your_telegram_numeric_user_id
 DATABASE_URL=sqlite+aiosqlite:///./emaktab.db
+# Optional. Credential checks stay off unless this is true.
+LOGIN_CHECK_ENABLED=false
+LOGIN_URL=https://login.emaktab.uz/
 ```
 
 For multiple authorized users, separate positive numeric Telegram IDs with
@@ -76,10 +79,41 @@ with `Ctrl+C`.
 - Use the **History** button or `/history` to view saved reports.
 - Only Telegram IDs listed in `AUTHORIZED_USER_IDS` can use the bot.
 
-Until an authentication method is confirmed as permitted, account selection
-only reports that verification is unavailable. **Do not send eMaktab usernames
-or passwords to the bot.** The bot does not delete Telegram messages containing
-credentials and cannot guarantee their removal.
+**Enter results manually (no eMaktab contact):** tap **Natija kiritish**, then
+send one line with the account type and three counts, in this order:
+
+```text
+student 3 1 0
+```
+
+That means 3 successful, 1 invalid credentials, 0 unknown. The bot saves one
+batch of anonymous rows labeled `manual entry`. It never asks for credentials
+in this mode. Use `/cancel` to stop. Each count must be a whole number from 0
+to 1000, and the total must be at least 1.
+
+When `LOGIN_CHECK_ENABLED` is off (the default), account selection only reports
+that verification is unavailable, and the bot never asks for credentials.
+
+When `LOGIN_CHECK_ENABLED=true`, the bot runs one login check per account
+selection:
+
+1. The user sends the eMaktab login.
+2. The user sends the password.
+3. The bot deletes each of those messages right away and makes one POST to
+   `LOGIN_URL` with the credentials in the form body.
+4. The bot saves one summary row (no login, no password) and replies with the
+   outcome.
+
+Use `/cancel` to stop an unfinished check. If Telegram refuses to delete a
+credential message, the bot asks you to delete it yourself. Telegram chat
+history can still hold the messages until they are removed.
+
+Enable the check only for accounts you are authorized to check, under a
+documented assignment from the school administration. Credentials are sent
+only to `LOGIN_URL`. Credentials are never logged, and the bot never stores
+them. The outcome mapping is: HTTP 401 or 403 means invalid credentials, and
+anything else means unknown. HTTP 200 is not treated as success, because the
+login form itself returns 200 without accepting the credentials.
 
 History contains only summaries that were actually recorded. It does not
 display sample counts as real results or store passwords, authentication

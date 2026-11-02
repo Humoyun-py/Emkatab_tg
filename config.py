@@ -14,6 +14,7 @@ class Settings:
     authorized_user_ids: frozenset[int]
     database_url: str
     login_url: str
+    login_check_enabled: bool
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -67,9 +68,14 @@ class Settings:
             "https://login.emaktab.uz/"
         ).strip()
 
+        login_check_enabled = os.getenv(
+            "LOGIN_CHECK_ENABLED", "false"
+        ).strip().lower() in {"1", "true", "yes", "on"}
+
         return cls(
             bot_token=bot_token,
             authorized_user_ids=frozenset(authorized_user_ids),
             database_url=database_url,
             login_url=login_url,
+            login_check_enabled=login_check_enabled,
         )
