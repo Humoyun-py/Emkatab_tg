@@ -10,8 +10,51 @@ from config import Settings
 def _isolate_environment(monkeypatch):
     """Ignore the developer's real .env file and start from a clean environment."""
     monkeypatch.setattr(config, "load_dotenv", lambda *args, **kwargs: False)
-    for name in ("BOT_TOKEN", "AUTHORIZED_USER_IDS", "DATABASE_URL"):
+    for name in (
+        "BOT_TOKEN",
+        "AUTHORIZED_USER_IDS",
+        "DATABASE_URL",
+        "LOGIN_URL",
+        "LOGIN_CHECK_ENABLED",
+    ):
         monkeypatch.delenv(name, raising=False)
+
+
+def _minimal_env(monkeypatch):
+    monkeypatch.setenv("BOT_TOKEN", "token")
+    monkeypatch.setenv("AUTHORIZED_USER_IDS", "111")
+
+
+def test_login_check_is_disabled_by_default(monkeypatch):
+    """Credential checking stays off unless explicitly enabled."""
+    _minimal_env(monkeypatch)
+
+    assert Settings.from_environment().login_check_enabled is False
+
+
+@pytest.mark.parametrize("raw_value", ["true", "TRUE", " yes ", "1", "on"])
+def test_login_check_accepts_truthy_values(monkeypatch, raw_value):
+    """Common truthy spellings enable the login check."""
+    _minimal_env(monkeypatch)
+    monkeypatch.setenv("LOGIN_CHECK_ENABLED", raw_value)
+
+    assert Settings.from_environment().login_check_enabled is True
+
+
+@pytest.mark.parametrize("raw_value", ["false", "0", "no", "", "maybe"])
+def test_login_check_treats_other_values_as_disabled(monkeypatch, raw_value):
+    """Anything that is not an explicit truthy value keeps the check off."""
+    _minimal_env(monkeypatch)
+    monkeypatch.setenv("LOGIN_CHECK_ENABLED", raw_value)
+
+    assert Settings.from_environment().login_check_enabled is False
+
+
+def test_login_url_defaults_to_emaktab_login(monkeypatch):
+    """Without an override, the login URL points at the official host."""
+    _minimal_env(monkeypatch)
+
+    assert Settings.from_environment().login_url == "https://login.emaktab.uz/"
 
 
 def test_valid_settings_are_parsed(monkeypatch):

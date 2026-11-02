@@ -1,10 +1,12 @@
 """Account-type selection callback handler."""
 
 from aiogram import F, Router
+from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 
 from database.models import AccountType
-from services.login_checker import UnavailableLoginChecker
+from services.login_checker import LoginChecker
+from states.login import LoginCheck
 
 
 router = Router(name="account_type")
@@ -14,14 +16,15 @@ ACCOUNT_TYPE_LABELS = {
     AccountType.PARENT.value: "Parent",
 }
 
-login_checker = UnavailableLoginChecker()
-
 
 @router.callback_query(F.data.startswith("account_type:"))
 async def handle_account_type_selection(
     callback: CallbackQuery,
+    state: FSMContext,
+    login_checker: LoginChecker,
+    login_check_enabled: bool,
 ) -> None:
-    """Handle student and parent account selection."""
+    """Start a login check when enabled, otherwise report unavailability."""
 
     account_type_value = (
         callback.data.partition(":")[2]
@@ -39,6 +42,18 @@ async def handle_account_type_selection(
         return
 
     await callback.answer()
+
+    if login_check_enabled:
+        await state.set_data({"account_type": account_type_value})
+        await state.set_state(LoginCheck.waiting_login)
+
+        if callback.message:
+            await callback.message.answer(
+                f"Tanlangan akkaunt: {label}\n\n"
+                "eMaktab loginingizni yuboring. "
+                "Xabar tekshiruvdan so‘ng o‘chiriladi."
+            )
+        return
 
     account_type = AccountType(account_type_value)
 

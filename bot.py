@@ -24,7 +24,14 @@ from database.engine import (
 )
 from handlers.account_type import router as account_type_router
 from handlers.history import router as history_router
+from handlers.login_check import router as login_check_router
+from handlers.manual_entry import router as manual_entry_router
 from handlers.start import router as start_router
+from services.login_checker import (
+    EMaktabLoginChecker,
+    LoginChecker,
+    UnavailableLoginChecker,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -72,6 +79,13 @@ class AuthorizationMiddleware(BaseMiddleware):
         return await handler(event, data)
 
 
+def create_login_checker(settings: Settings) -> LoginChecker:
+    """Return the eMaktab checker only when it is explicitly enabled."""
+    if settings.login_check_enabled:
+        return EMaktabLoginChecker(settings.login_url)
+    return UnavailableLoginChecker()
+
+
 def create_dispatcher(settings: Settings) -> Dispatcher:
     """Create dispatcher and configure authorization middleware."""
 
@@ -80,8 +94,13 @@ def create_dispatcher(settings: Settings) -> Dispatcher:
     dispatcher.include_routers(
         start_router,
         account_type_router,
+        login_check_router,
+        manual_entry_router,
         history_router,
     )
+
+    dispatcher["login_checker"] = create_login_checker(settings)
+    dispatcher["login_check_enabled"] = settings.login_check_enabled
 
     authorization = AuthorizationMiddleware(
         settings.authorized_user_ids

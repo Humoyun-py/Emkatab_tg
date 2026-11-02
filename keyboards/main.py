@@ -19,6 +19,12 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
                     callback_data="account_type:parent",
                 )
             ],
+            [
+                InlineKeyboardButton(
+                    text="Natija kiritish",
+                    callback_data="manual_entry",
+                )
+            ],
             [InlineKeyboardButton(text="History", callback_data="history")],
         ]
     )
